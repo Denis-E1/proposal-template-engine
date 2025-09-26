@@ -1,0 +1,15 @@
+# Envs
+.venv/
+venv/
+**/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local env files
+.env
+
+# Data files (we'll write proposals here)
+data/*.json
