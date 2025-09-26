@@ -5,56 +5,122 @@
   <title>Proposal Template Engine</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    body { background:#0b0f14; color:#c8f7c5; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin:20px; }
-    h1 { color:#90ee90; }
-    input, textarea, select, button { background:#11161d; color:#c8f7c5; border:1px solid #2a3b4c; padding:8px; border-radius:6px; width:100%; }
-    label { display:block; margin:10px 0 4px; }
+    :root {
+      --bg:#0b0f14; --panel:#0f151c; --ink:#c8f7c5; --ink-dim:#9ad79e;
+      --line:#233243; --accent:#a7f3a1; --accent-d:#6be06b;
+    }
+    html,body { height:100%; }
+    body { margin:0; background:var(--bg); color:var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .wrap { max-width:1000px; margin:28px auto; padding:0 16px; }
+    h1 { color:var(--accent); margin:0 0 14px 0; font-size:28px; }
+    .card { border:1px solid var(--line); background:var(--panel);
+      border-radius:12px; padding:16px; margin:12px 0; }
+    label { display:block; margin:10px 0 6px; color:var(--ink-dim); }
+    input, textarea, select, button {
+      width:100%; background:#0f141a; color:var(--ink);
+      border:1px solid var(--line); border-radius:8px; padding:10px;
+    }
+    textarea { min-height:120px; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .card { border:1px solid #2a3b4c; padding:16px; border-radius:10px; margin:12px 0; }
-    .btn { cursor:pointer; font-weight:600; }
+    .btn { cursor:pointer; font-weight:700; border-color:#294a3b; }
+    .btn:hover { border-color:#2f6a4b; color:var(--accent); }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .muted { color:var(--ink-dim); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; border-bottom:1px dashed var(--line); padding:8px 6px; }
+    kbd { background:#0d1319; border:1px solid var(--line); border-radius:6px; padding:2px 6px;}
+    .actions { display:flex; gap:10px; }
+    .right { text-align:right; }
     pre { background:#0e141a; padding:12px; border-radius:10px; overflow:auto; }
   </style>
 </head>
 <body>
-  <h1>Proposal Template Engine</h1>
+  <div class="wrap">
+    <h1>Proposal Template Engine</h1>
 
-  <div class="card">
-    <div class="row">
-      <div>
-        <label>Client name</label>
-        <input id="client" placeholder="Acme Co."/>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Client name</label>
+          <input id="client" placeholder="Acme Co."/>
+        </div>
+        <div>
+          <label>Currency</label>
+          <select id="currency"><option>USD</option><option>KES</option></select>
+        </div>
       </div>
-      <div>
-        <label>Currency</label>
-        <select id="currency">
-          <option value="USD">USD</option>
-          <option value="KES">KES</option>
-        </select>
+
+      <div class="row">
+        <div>
+          <label>Hourly rate</label>
+          <input id="rate" type="number" value="35"/>
+        </div>
+        <div>
+          <label>Buffer % <span class="muted">(0.2 = 20%)</span></label>
+          <input id="buffer" type="number" step="0.05" value="0.20"/>
+        </div>
+      </div>
+
+      <label>Brief</label>
+      <textarea id="brief" placeholder="Paste the client's brief..."></textarea>
+
+      <button class="btn" onclick="gen()">Generate Proposal</button>
+      <div class="muted" style="margin-top:8px">Tip: press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to submit.</div>
+    </div>
+
+    <div id="result" style="display:none">
+      <div class="grid">
+        <div class="card">
+          <h3>Totals</h3>
+          <table>
+            <tbody>
+              <tr><td>Subtotal hours</td><td class="right" id="hours">—</td></tr>
+              <tr><td>Rate</td><td class="right" id="rateOut">—</td></tr>
+              <tr><td>Subtotal</td><td class="right" id="sub">—</td></tr>
+              <tr><td>Buffer</td><td class="right" id="buf">—</td></tr>
+              <tr><th>Total</th><th class="right" id="tot">—</th></tr>
+            </tbody>
+          </table>
+          <div class="actions" style="margin-top:10px">
+            <button class="btn" onclick="copyMD()">Copy Markdown</button>
+            <button class="btn" onclick="downloadMD()">Download .md</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Deliverables</h3>
+          <table id="deliverablesTbl"><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Milestones</h3>
+          <table id="milestonesTbl"><tbody></tbody></table>
+        </div>
+        <div class="card">
+          <h3>Risks</h3>
+          <table id="risksTbl"><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Summary (Markdown)</h3>
+        <pre id="md"></pre>
+      </div>
+
+      <div class="card">
+        <h3>Raw JSON</h3>
+        <pre id="json"></pre>
       </div>
     </div>
-    <div class="row">
-      <div>
-        <label>Hourly rate</label>
-        <input id="rate" type="number" value="35"/>
-      </div>
-      <div>
-        <label>Buffer % (0.2 = 20%)</label>
-        <input id="buffer" type="number" step="0.05" value="0.20"/>
-      </div>
-    </div>
-    <label>Brief</label>
-    <textarea id="brief" rows="8" placeholder="Paste the client brief here..."></textarea>
-    <button class="btn" onclick="gen()">Generate Proposal</button>
-  </div>
-
-  <div id="out" class="card" style="display:none">
-    <h3>Result (JSON)</h3>
-    <pre id="json"></pre>
-    <h3>Summary (Markdown)</h3>
-    <pre id="md"></pre>
   </div>
 
 <script>
+let lastMd = "";
+function fmtMoney(v, cur){ return `${cur} ${Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}` }
+
 async function gen() {
   const payload = {
     client_name: document.getElementById('client').value.trim(),
@@ -63,12 +129,57 @@ async function gen() {
     buffer_pct: parseFloat(document.getElementById('buffer').value),
     brief: document.getElementById('brief').value.trim()
   };
-  const res = await fetch('/proposals', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const res = await fetch('/proposals', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  });
+  if(!res.ok){
+    const t = await res.text();
+    alert("Error: " + t);
+    return;
+  }
   const data = await res.json();
-  document.getElementById('out').style.display = 'block';
+  document.getElementById('result').style.display = 'block';
   document.getElementById('json').textContent = JSON.stringify(data, null, 2);
   document.getElementById('md').textContent = data.summary_md || '';
+  lastMd = data.summary_md || '';
+
+  // totals
+  const q = data.quote||{};
+  const cur = q.currency || payload.currency;
+  document.getElementById('hours').textContent  = (q.subtotal_hours ?? 0).toFixed(2);
+  document.getElementById('rateOut').textContent = fmtMoney(data.rate_per_hour, cur);
+  document.getElementById('sub').textContent    = fmtMoney(q.subtotal_amount, cur);
+  document.getElementById('buf').textContent    = fmtMoney(q.buffer_amount, cur);
+  document.getElementById('tot').textContent    = fmtMoney(q.total_amount, cur);
+
+  // tables
+  const dts = data.deliverables||[];
+  const mls = data.milestones||[];
+  const rks = data.risks||[];
+  const dBody = document.querySelector('#deliverablesTbl tbody');
+  const mBody = document.querySelector('#milestonesTbl tbody');
+  const rBody = document.querySelector('#risksTbl tbody');
+  dBody.innerHTML = dts.map(d => `<tr><td>${d.title}</td><td class="right">${(d.est_hours||0).toFixed(1)} h</td></tr>`).join('') || '<tr><td class="muted">—</td><td></td></tr>';
+  mBody.innerHTML = mls.map(x => `<tr><td>${x.title}</td><td class="right">wk ${x.due_week||0}</td></tr>`).join('') || '<tr><td class="muted">—</td><td></td></tr>';
+  rBody.innerHTML = rks.map(r => `<tr><td>${r.title}</td><td class="right">${r.severity||'MEDIUM'}</td></tr>`).join('') || '<tr><td class="muted">—</td><td></td></tr>';
 }
+
+function copyMD(){
+  if(!lastMd){ return alert("No Markdown yet."); }
+  navigator.clipboard.writeText(lastMd).then(()=>alert("Markdown copied!"));
+}
+function downloadMD(){
+  if(!lastMd){ return alert("No Markdown yet."); }
+  const blob = new Blob([lastMd], {type:'text/markdown'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'proposal.md'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && e.ctrlKey){ gen(); }
+});
 </script>
 </body>
 </html>

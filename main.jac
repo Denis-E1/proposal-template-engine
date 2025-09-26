@@ -1,8 +1,7 @@
 # Proposal Template Engine — Jac core (Phase 2 scaffold, obj-based)
 
 # 1) Bind a global LLM (Gemini)
-import from byllm { Model }
-glob llm = Model(model_name="gemini/gemini-2.0-flash", temperature=0.2);
+glob llm = Model(model_name="gemini-1.5-flash-8b-latest", temperature=0.2);
 
 # 2) Enums
 enum Severity { LOW, MEDIUM, HIGH }
