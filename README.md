@@ -1,114 +1,196 @@
-# Proposal Template Engine
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)![Jac](https://img.shields.io/badge/Jac-0.8.x-7A1FA2)![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
 
-A tiny service that turns a client **brief** into a structured **proposal** (scope, milestones, risks) and a **cost estimate**, plus a clean Markdown summary.
+# Proposal Template Engine 
 
-- **Currencies (MVP):** KES, USD
-- **Tech:** Jac (by LLM), FastAPI adapter, Railway deploy
-- **Storage:** single JSON file (no database for MVP)
-- **Branches:** `staging` (work here) → PR → `production`
+A minimal service that leverages **Google Gemini** to transform a client brief into a structured project proposal, complete with estimated costs and a clean Markdown summary. It demonstrates both native Python API calls and advanced **typed LLM calls using Jac (`by llm()`)**.
 
-## Status
-Phase 0 — repo & environment bootstrap.
+-----
 
-## Product (UX)
+##  Features & Technologies
 
-**Goal:** Paste a client brief → get a structured proposal (scope, milestones, risks) + a cost estimate and a clean Markdown summary.
+| Category | Detail |
+| :--- | :--- |
+| **LLM** | **Google Gemini** (via `google-generativeai` Python SDK) |
+| **API** | **FastAPI** (`/proposals` endpoint) |
+| **UI** | Minimal single-page HTML at `/ui` |
+| **Storage** | Local JSON file (`data/proposals.json`) |
+| **Typed LLM (Optional)** | **Jac** (`jaclang` + `byllm`) for strict, schema-driven LLM output |
+| **Currencies** | **USD**, **KES** |
 
-**User flow (MVP)**
-1. Open **/ui**.
-2. Enter: Client name, Hourly rate, Buffer %, Currency (KES or USD).
-3. Paste the **brief** and click **Generate Proposal**.
-4. See totals + a Markdown summary (copy/download).
-5. Proposal is saved to `data/proposals.json` (simple file storage).
+### Demo: What You Get
 
-**Defaults**
-- Hourly rate: `35`
-- Buffer %: `0.20` (20%)
-- Currencies: `KES`, `USD`
+By inputting the client name, hourly rate, buffer percentage, and a free-form brief, the engine returns:
 
-## Data Model (MVP)
+1.  **Structured Scope:** Deliverables (with estimated hours), Milestones, Assumptions, Out-of-Scope items, and Risks.
+2.  **Totals:** Subtotal, buffer, and final costs calculated based on the rate and buffer.
+3.  **Summary:** A clean, downloadable **Markdown** file of the full proposal.
 
-**Entities**
-- `Client { name, email? }`
-- `Brief { text, created_at }`
-- `Proposal { title, created_at, rate_per_hour, buffer_pct, currency }`
-- `Deliverable { title, description, est_hours }`
-- `Milestone { title, due_week, deliverables[] }`
-- `Risk { title, mitigation, severity }`
-- `Quote { subtotal_hours, rate_per_hour, buffer_pct, subtotal_amount, buffer_amount, total_amount, currency }`
+-----
 
-**Enums**
-- `Severity { LOW, MEDIUM, HIGH }`
-- `Currency { KES, USD }`
+##  Project Structure
 
-**Relations**
-- `CLIENT_HAS` (Client → Proposal)
-- `PROPOSAL_FROM` (Proposal → Brief)
-- `PROPOSAL_HAS` (Proposal → Deliverable/Milestone/Risk/Quote)
+```bash
+.
+├─ app.py                  # FastAPI service + simple UI endpoint
+├─ engine.jac              # Jac typed LLM engine (optional, used when USE_JAC=1)
+├─ static/
+│  ├─ ui.html              # Retro minimal UI (served at /ui)
+│  └─ index.html           # Optional landing page
+├─ data/
+│  └─ proposals.json       # Local persistence (created on first save)
+├─ requirements.txt
+└─ README.md
+```
 
-## LLM & Types
+-----
 
-We bind one global LLM model (Gemini) and use **meaning-typed** functions:
+##  Quick Start (Local)
 
-- `extract_scope(brief) -> { deliverables[], milestones[], assumptions[], out_of_scope[], risks[] }  by llm()`
-- `summarize_md(scope, quote, currency) -> str  by llm()`
+### Requirements
 
-> Numbers are **deterministic** in code:
-> - `subtotal_hours = sum(est_hours)`
-> - `subtotal_amount = subtotal_hours * rate_per_hour`
-> - `buffer_amount = subtotal_amount * buffer_pct`
-> - `total_amount = subtotal_amount + buffer_amount`
+  * **Python 3.12+**
+  * A **Google Gemini API key** (Get one here: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey))
 
-## API Plan
+<!-- end list -->
 
-- `GET /` → health `{ ok: true }`
-- `GET /ui` → simple one-page UI
-- `POST /proposals`
-  - **Body**
-    ```json
-    {
-      "client_name": "Acme Co.",
-      "brief": "We need a marketing site with a CMS and blog...",
-      "hourly_rate": 35,
-      "buffer_pct": 0.2,
-      "currency": "USD"
-    }
+1.  **Clone the repository and set up a Virtual Environment (Venv):**
+
+    ```bash
+    git clone https://github.com/<your-username>/proposal-template-engine.git
+    cd proposal-template-engine
+
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install -U pip
     ```
-  - **Response (example)**
-    ```json
-    {
-      "proposal_id": "prop_001",
-      "deliverables": [{"title":"Website","description":"...","est_hours":24}],
-      "milestones": [{"title":"Design sign-off","due_week":2,"deliverables":["Website"]}],
-      "assumptions": ["Client provides brand assets"],
-      "out_of_scope": ["Custom CRM"],
-      "risks": [{"title":"Scope creep","mitigation":"Change policy","severity":"MEDIUM"}],
-      "quote": {
-        "subtotal_hours": 24.0,
-        "subtotal_amount": 840.0,
-        "buffer_amount": 168.0,
-        "total_amount": 1008.0,
-        "currency": "USD"
-      },
-      "summary_md": "## Proposal for Acme Co.\n..."
-    }
+
+    *(Windows PowerShell: `.venv\Scripts\Activate.ps1`)*
+
+2.  **Install dependencies:**
+
+    ```bash
+    pip install -r requirements.txt
     ```
-- `GET /proposals` → list summaries `[ {id, title, total_amount, created_at} ]`
-- `GET /proposals/{id}` → full proposal JSON
-- `GET /run` → calls `jac run` (grading/completeness helper)
 
-## Persistence (no DB for MVP)
+    This installs FastAPI, Uvicorn, and the `google-generativeai` client.
 
-- File: `data/proposals.json` (created on first save)
-- Shape: `{ "prop_001": { ...proposal json... }, "prop_002": {...} }`
-- In-memory cache mirrors the file; write-through on create/update.
-- IDs: `prop_<timestamp>` (e.g., `prop_2025-09-25T12-30-00Z`)
+3.  **Set environment variables:**
 
-## UI Plan
+    | OS/Shell | Command |
+    | :--- | :--- |
+    | **Linux/macOS** | `export GEMINI_API_KEY="YOUR_API_KEY"` |
+    | **Windows PowerShell** | `setx GEMINI_API_KEY "YOUR_API_KEY"` |
 
-Single page served at **/ui**:
-- Inputs: Client name, Hourly rate, Buffer %, Currency (KES|USD), Brief (textarea)
-- Action: **Generate Proposal** (calls `POST /proposals`)
-- Output: Totals + tables (Deliverables, Milestones, Risks) + **Markdown preview**
-- Buttons: **Copy Markdown**, **Download .md**
-- Styling: small inline CSS (no framework)
+    *(Optional Model: `export GEMINI_MODEL="gemini-1.5-flash-8b-latest"`)*
+
+4.  **Run the server:**
+
+    ```bash
+    uvicorn app:app --host 0.0.0.0 --port 8000
+    ```
+
+    Open the UI in your browser: **http://localhost:8000/ui**
+
+-----
+
+##  API Reference
+
+The service is driven by a single **POST** endpoint: `/proposals`.
+
+### Request Body (`POST /proposals`)
+
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `client` | `str` | Name of the client/project. |
+| `brief` | `str` | Free-form description of the project needs. |
+| `rate` | `int/float` | Hourly rate for calculations. |
+| `currency` | `str` | **USD** or **KES** only. |
+| `buffer` | `float` | Contingency buffer as a decimal (e.g., `0.20` for 20%). |
+
+```json
+{
+  "client": "Sarah",
+  "brief": "We are a growing B2B software company. Redesign our website and integrate it with our CRM.",
+  "rate": 52,
+  "currency": "USD",
+  "buffer": 0.20
+}
+```
+
+### Response (Truncated)
+
+The response provides structured data for the scope, calculated totals, and a raw Markdown summary.
+
+```json
+{
+  "ok": true,
+  "id": "20250926-095421",
+  "engine": "fallback_python",
+  "scope": {
+    "deliverables": [
+      {"title":"New Homepage","description":"...","est_hours":40},
+      // ... more deliverables
+    ],
+    // ... milestones, assumptions, risks
+  },
+  "totals": {
+    "subtotal_hours": 135.0,
+    "total": 8424.0,
+    "currency": "USD"
+  },
+  "markdown": "# Proposal Summary for Sarah\n..."
+}
+```
+
+Results are persisted locally in `data/proposals.json`.
+
+-----
+
+##  Use Typed Jac Engine (Optional)
+
+The service can switch to a **Jac engine** (`engine.jac`) which utilizes `by llm()` functions for **stricter, meaning-typed LLM output**. This eliminates the need for complex prompt engineering in Python.
+
+1.  **Install Jac and byLLM:**
+
+    ```bash
+    pip install jaclang byllm
+    ```
+
+2.  **Set the Jac LLM environment variables:**
+    *Note: The provider prefix (`gemini/`) is required by byLLM/LiteLLM.*
+
+    ```bash
+    export JAC_MODEL="gemini/gemini-1.5-flash-8b-latest"
+    ```
+
+3.  **Tell the app to use the Jac engine:**
+
+    ```bash
+    export USE_JAC=1
+    uvicorn app:app --host 0.0.0.0 --port 8000
+    ```
+
+    The app will now execute `jac run engine.jac` to call the typed `extract_scope(brief)` function and return its structured JSON.
+
+-----
+
+## Tips & Troubleshooting
+
+| Issue | Solution |
+| :--- | :--- |
+| **`ModuleNotFoundError: google.generativeai`** | Your venv isn't active or dependencies aren't installed. Run `source .venv/bin/activate` and `pip install -r requirements.txt`. |
+| **"UI not found. Missing static/ui.html"** | Make sure you start Uvicorn from the **repo root** (`uvicorn app:app ...`) where `app.py` is located. |
+| **Jac/byLLM issues** | **Ensure `GEMINI_API_KEY` is set.** Verify your Jac model name includes the provider prefix, e.g., `gemini/gemini-1.5-flash-8b-latest`. Run `pip install -U jaclang byllm` to upgrade. |
+| **Nothing changes after setting env vars** | **You must restart the Uvicorn process** after changing any environment variables (`GEMINI_API_KEY`, `USE_JAC`, etc.). |
+| **Results save location** | Results are saved to `data/proposals.json`. You can safely delete this file to reset history. |
+
+### Development Notes
+
+  * **Keep API keys out of Git.** Use environment variables or a `.env` file that is not committed.
+  * This project was built for a GenAI course to demonstrate **typed LLM capabilities** via Jac/byLLM.
+
+-----
+
+##  License
+
+**MIT** 
